@@ -1,0 +1,151 @@
+import Foundation
+import Testing
+
+@Suite
+private struct `Compiler Tests` {
+    @Test
+    func `signature requires a domain namespace`() throws {
+        let diagnostic = try typecheckFailure(named: "Top Level Signature.swift")
+
+        #expect(
+            diagnostic.contains(
+                "'peer' macros are not allowed to introduce arbitrary names at global scope"
+            )
+        )
+    }
+
+    @Test
+    func `one operation result cannot satisfy another result family`() throws {
+        let diagnostic = try typecheckFailure(named: "Wrong Result.swift")
+
+        #expect(
+            diagnostic.contains(
+                "cannot convert value of type 'Either<Counter.Increment.Output, Counter.Increment.Failure>'"
+            )
+        )
+    }
+
+    @Test
+    func `application rejects another operation input`() throws {
+        let diagnostic = try typecheckFailure(named: "Wrong Input.swift")
+
+        #expect(diagnostic.contains("cannot convert value of type 'Counter.Limit'"))
+    }
+
+    @Test
+    func `result rejects another operation output`() throws {
+        let diagnostic = try typecheckFailure(named: "Wrong Output.swift")
+
+        #expect(diagnostic.contains("cannot convert value of type 'Counter.Value'"))
+    }
+
+    @Test
+    func `result rejects another operation failure`() throws {
+        let diagnostic = try typecheckFailure(named: "Wrong Failure.swift")
+
+        #expect(
+            diagnostic.contains("cannot convert value of type 'Counter.Failure'")
+        )
+    }
+
+    @Test
+    func `elimination requires every leaf operation`() throws {
+        let diagnostic = try typecheckFailure(named: "Incomplete Elimination.swift")
+
+        #expect(diagnostic.contains("missing argument for parameter 'second' in call"))
+    }
+
+    @Test
+    func `root elimination requires every child signature`() throws {
+        let diagnostic = try typecheckFailure(named: "Incomplete Root Elimination.swift")
+
+        #expect(diagnostic.contains("missing argument for parameter 'counter' in call"))
+    }
+
+    @Test
+    func `product construction requires every operation`() throws {
+        let diagnostic = try typecheckFailure(named: "Incomplete Product.swift")
+
+        #expect(diagnostic.contains("missing argument for parameter 'second' in call"))
+    }
+
+    @Test
+    func `call is noncopyable when an operation transfers its input`() throws {
+        let diagnostic = try typecheckFailure(named: "Noncopyable Call.swift")
+
+        #expect(diagnostic.contains("Call"))
+        #expect(diagnostic.contains("conform to 'Copyable'"))
+    }
+
+    @Test
+    func `call cannot carry nonescapable input while deriving stored prisms`() throws {
+        let diagnostic = try typecheckFailure(
+            named: "Nonescapable Call.swift"
+        )
+
+        #expect(diagnostic.contains("ScopedToken"))
+        #expect(diagnostic.contains("Escapable"))
+    }
+
+    @Test
+    func `nested call copyability recovery remains syntactically conservative`() throws {
+        let diagnostic = try typecheckFailure(
+            named: "Conservative Call Copyability.swift"
+        )
+
+        #expect(diagnostic.contains("Owned.Call"))
+        #expect(diagnostic.contains("Root.Call"))
+        #expect(diagnostic.contains("conform to 'Copyable'"))
+    }
+
+    @Test
+    func `signature rejects inout state transitions`() throws {
+        let diagnostic = try typecheckFailure(named: "Inout Signature.swift")
+
+        #expect(diagnostic.contains("owned snapshot, not a state transition"))
+    }
+
+    private func typecheckFailure(named name: String) throws -> String {
+        var products = Bundle.module.bundleURL
+        while !FileManager.default.fileExists(
+            atPath: products.appendingPathComponent("Signature_Derivation.swiftmodule").path
+        ) {
+            let parent = products.deletingLastPathComponent()
+            products = try #require(parent != products ? parent : nil)
+        }
+        let fixture = Bundle.module.resourceURL!
+            .appendingPathComponent("Fixtures")
+            .appendingPathComponent(name)
+        let process = Process()
+        let standardError = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.arguments = [
+            "swiftc",
+            "-typecheck",
+            "-swift-version", "6",
+            "-enable-experimental-feature", "Lifetimes",
+            "-enable-experimental-feature", "MoveOnlyTuples",
+            "-module-name", "Proof",
+            "-I", products.path,
+            "-I", products.appendingPathComponent("Modules").path,
+            "-F", products.appendingPathComponent("PackageFrameworks").path,
+            "-Xfrontend", "-load-plugin-executable",
+            "-Xfrontend",
+            products.appendingPathComponent(
+                "Signature Derivation Macros#Signature_Derivation_Macros"
+            ).path,
+            fixture.path,
+        ]
+        process.standardError = standardError
+        try process.run()
+        process.waitUntilExit()
+        let diagnostic = String(
+            decoding: standardError.fileHandleForReading.readDataToEndOfFile(),
+            as: UTF8.self
+        )
+
+        #expect(process.terminationStatus != 0, "Fixture unexpectedly typechecked")
+        #expect(!diagnostic.contains("no such module"), "Compiler fixture could not load its modules")
+        return diagnostic
+    }
+}
