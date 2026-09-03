@@ -263,6 +263,21 @@ private struct `Domain Tests` {
     }
 
     @Test
+    func `derived cases pair each prism with its fold`() {
+        let call = Greeting.Call.greet(.init(value: "Blob"))
+        var name: Greeting.Name? = nil
+        let visited = Greeting.Call.cases.greet.visit(call) { name = $0.input }
+        let embedded = Greeting.Call.cases.greet.embed(.init(.init(value: "Blob")))
+        #expect(visited)
+        #expect(name == .init(value: "Blob"))
+        #expect(Greeting.Call.cases.greet.matches(embedded))
+
+        let linear = LinearExample.Call.linear(.consume(.init(value: 2)))
+        let composed = LinearExample.Call.cases.linear.matches(linear)
+        #expect(composed)
+    }
+
+    @Test
     func `call carries a noncopyable tuple input`() {
         let eliminate = LinearPair.Call.Eliminator<Int>(
             combine: { _ in 42 }

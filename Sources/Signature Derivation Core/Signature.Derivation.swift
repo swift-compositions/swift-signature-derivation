@@ -107,6 +107,22 @@ extension Signature {
             let members = algebra.map {
                 $0.trimmedDescription
             }.joined(separator: "\n\n")
+            let caseProperties = summands.map { summand in
+                """
+                    \(accessSpelling)var \(summand.name.text): Optic<Coproduct, Coproduct, \(summand.parameter), \(summand.parameter)>.Case {
+                        .init(prism: Coproduct.prisms.\(summand.name.text), fold: Coproduct.folds.\(summand.name.text))
+                    }
+                    """
+            }.joined(separator: "\n")
+            let caseNamespace = """
+                \(accessSpelling)struct Cases {
+                \(caseProperties)
+                }
+
+                \(accessSpelling)static var cases: Cases {
+                    Cases()
+                }
+                """
             let indices = signature.coordinates.map { $0.symbol.trimmedDescription }
                 + children.map(\.parameter)
             let operations = indices.dropFirst().reduce(indices[0]) { partial, next in
@@ -124,6 +140,8 @@ extension Signature {
                     \(constructors)
 
                     \(members)
+
+                    \(caseNamespace)
                     }
                     """),
                 DeclSyntax(stringLiteral: """
