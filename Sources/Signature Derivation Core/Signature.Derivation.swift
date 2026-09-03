@@ -1,6 +1,7 @@
 public import SwiftSyntax
 import Coproduct_Derivation_Core
 import Eliminator_Derivation_Core
+import Fold_Derivation_Core
 import Prism_Derivation_Core
 public import Product_Derivation_Core
 import SwiftSyntaxBuilder
@@ -101,6 +102,7 @@ extension Signature {
                 isCopyableSuppressed: true
             )
             let algebra = Prism.Derivation.expansion(coproduct)
+                + Fold.Derivation.expansion(coproduct)
                 + Eliminator.Derivation.expansion(coproduct)
             let members = algebra.map {
                 $0.trimmedDescription

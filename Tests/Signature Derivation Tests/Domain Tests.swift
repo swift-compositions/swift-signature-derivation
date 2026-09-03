@@ -238,6 +238,31 @@ private struct `Domain Tests` {
     }
 
     @Test
+    func `derived folds lend a payload without consuming the call`() {
+        let greeting = Greeting.Call.greet(.init(value: "Blob"))
+        var name: Greeting.Name? = nil
+        let visited = Greeting.Call.folds.greet(greeting) { name = $0.input }
+        #expect(visited)
+        #expect(name == .init(value: "Blob"))
+
+        let linear = Linear.Call.consume(.init(value: 41))
+        var total = 0
+        let first = Linear.Call.folds.consume(linear) { total += $0.input.value }
+        let second = Linear.Call.folds.consume(linear) { total += $0.input.value }
+        #expect(first)
+        #expect(second)
+        #expect(total == 82)
+
+        let composed = LinearExample.Call.linear(.consume(.init(value: 2)))
+        var seen = 0
+        let composedVisited = LinearExample.Call.folds.linear(composed) { child in
+            _ = Linear.Call.folds.consume(child) { seen = $0.input.value }
+        }
+        #expect(composedVisited)
+        #expect(seen == 2)
+    }
+
+    @Test
     func `call carries a noncopyable tuple input`() {
         let eliminate = LinearPair.Call.Eliminator<Int>(
             combine: { _ in 42 }
