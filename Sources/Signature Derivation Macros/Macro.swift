@@ -1,6 +1,33 @@
 import Signature_Derivation_Core
 import SwiftSyntax
+import SwiftSyntaxBuilder
 import SwiftSyntaxMacros
+
+public struct Structural: ExtensionMacro {
+    public static func expansion(
+        of _: AttributeSyntax,
+        attachedTo declaration: some DeclGroupSyntax,
+        providingExtensionsOf type: some TypeSyntaxProtocol,
+        conformingTo _: [TypeSyntax],
+        in _: some MacroExpansionContext
+    ) throws -> [ExtensionDeclSyntax] {
+        guard
+            let parameters = declaration.as(EnumDeclSyntax.self)?
+                .genericParameterClause?.parameters,
+            !parameters.isEmpty
+        else {
+            throw MacroExpansionErrorMessage(
+                "@Structural applies to a generic enum whose summands are its generic parameters."
+            )
+        }
+        let requirements = parameters.map { "\($0.name.text): Copyable" }
+            .joined(separator: ", ")
+        let declaration: DeclSyntax = DeclSyntax(
+            stringLiteral: "extension \(type.trimmed): Copyable where \(requirements) {}"
+        )
+        return [declaration.cast(ExtensionDeclSyntax.self)]
+    }
+}
 
 public struct Macro: PeerMacro {
     public static func expansion(

@@ -12,7 +12,7 @@ extension Signature {
             let spelling = access.map { "\($0.name.text) " } ?? ""
             return Product.Derivation.peers(of: signature.product)
                 + signature.coordinates.map { symbol($0, access: spelling) }
-                + [call(of: signature, access: access)]
+                + call(of: signature, access: access)
         }
 
         private static func symbol(
@@ -34,51 +34,58 @@ extension Signature {
         private static func call(
             of signature: Signature.Analysis,
             access: DeclModifierSyntax?
-        ) -> DeclSyntax {
+        ) -> [DeclSyntax] {
             let accessSpelling = access.map { "\($0.name.text) " } ?? ""
-            let suppressesCopyable = signature.declaresNoncopyableCall
-                || signature.coordinates.contains { coordinate in
-                    coordinate.function.parameters.contains {
-                        $0.transfersOwnership
-                    }
-                }
-            let leafCases = signature.coordinates.map { coordinate in
-                EnumCaseElementSyntax(
+            // The coproduct is generic in its summands so that the compiler, not a
+            // syntax macro, decides whether a Call is Copyable: @Structural adds
+            // `Copyable` exactly when every summand is. Leaves bind the parameter to
+            // the operation's Application, children to the child's Call.
+            //
+            // Call remains Escapable because its canonical generated prisms return
+            // both Call and Application from stored escaping arrows. Swift 6.4
+            // cannot express those result lifetime dependencies; the focused Optic
+            // and Signature compiler fixtures lock down that boundary.
+            let leaves = signature.coordinates.map { coordinate in
+                (
+                    parameter: "\(coordinate.symbol.text)Application",
                     name: coordinate.name,
+                    bound: "\(coordinate.symbol.trimmedDescription).Application"
+                )
+            }
+            let children = signature.children.map { child in
+                let name = child.name.text
+                return (
+                    parameter: "\(name.prefix(1).uppercased())\(name.dropFirst())Call",
+                    name: child.name,
+                    bound: child.call.trimmedDescription
+                )
+            }
+            let summands = leaves + children
+            let parameters = summands.map { "\($0.parameter): ~Copyable" }
+                .joined(separator: ", ")
+            let arguments = summands.map(\.bound).joined(separator: ", ")
+            let cases = summands.map { summand in
+                EnumCaseElementSyntax(
+                    name: summand.name,
                     parameterClause: EnumCaseParameterClauseSyntax(
                         parameters: EnumCaseParameterListSyntax([
                             EnumCaseParameterSyntax(
                                 type: TypeSyntax(
-                                    MemberTypeSyntax(
-                                        baseType: TypeSyntax(
-                                            IdentifierTypeSyntax(name: coordinate.symbol)
-                                        ),
-                                        name: .identifier("Application")
-                                    )
+                                    IdentifierTypeSyntax(name: .identifier(summand.parameter))
                                 )
                             )
                         ])
                     )
                 )
             }
-            let childCases = signature.children.map { child in
-                EnumCaseElementSyntax(
-                    name: child.name,
-                    parameterClause: EnumCaseParameterClauseSyntax(
-                        parameters: EnumCaseParameterListSyntax([
-                            EnumCaseParameterSyntax(type: child.call)
-                        ])
-                    )
-                )
-            }
-            let cases = leafCases + childCases
             let caseDeclarations = cases.map {
                 "case \($0.trimmedDescription)"
             }.joined(separator: "\n")
-            let constructors = signature.coordinates.map { coordinate in
+            let constructors = zip(signature.coordinates, leaves).map { coordinate, leaf in
                 """
-                    \(accessSpelling)static func \(coordinate.name.text)\(coordinate.declaration.signature.parameterClause.trimmedDescription) -> Self {
-                        let application: \(coordinate.symbol.trimmedDescription).Application = .init(
+                    \(accessSpelling)static func \(coordinate.name.text)\(coordinate.declaration.signature.parameterClause.trimmedDescription) -> Self
+                    where \(leaf.parameter) == \(leaf.bound) {
+                        let application: \(leaf.bound) = .init(
                             \(coordinate.inputExpression.trimmedDescription)
                         )
                         return Self.\(coordinate.name.text)(application)
@@ -87,11 +94,11 @@ extension Signature {
             }.joined(separator: "\n")
 
             let coproduct = Coproduct.Analysis(
-                whole: TypeSyntax(IdentifierTypeSyntax(name: .identifier("Call"))),
+                whole: TypeSyntax(IdentifierTypeSyntax(name: .identifier("Coproduct"))),
                 access: access,
                 cases: cases,
                 genericParameter: nil,
-                isCopyableSuppressed: suppressesCopyable
+                isCopyableSuppressed: true
             )
             let algebra = Prism.Derivation.expansion(coproduct)
                 + Eliminator.Derivation.expansion(coproduct)
@@ -99,25 +106,28 @@ extension Signature {
                 $0.trimmedDescription
             }.joined(separator: "\n\n")
             let indices = signature.coordinates.map { $0.symbol.trimmedDescription }
-                + signature.children.map { $0.call.trimmedDescription }
+                + children.map(\.parameter)
             let operations = indices.dropFirst().reduce(indices[0]) { partial, next in
                 "Either<\(partial), \(next)>"
             }
-            let conformance = suppressesCopyable
-                ? ": ~Copyable, Operation::Operation.Coproduct"
-                : ": Operation::Operation.Coproduct"
 
-            return DeclSyntax(stringLiteral: """
-                \(accessSpelling)enum Call\(conformance) {
-                \(accessSpelling)typealias Operations = \(operations)
+            return [
+                DeclSyntax(stringLiteral: """
+                    @Structural
+                    \(accessSpelling)enum Coproduct<\(parameters)>: ~Copyable, Operation::Operation.Coproduct {
+                    \(accessSpelling)typealias Operations = \(operations)
 
-                \(caseDeclarations)
+                    \(caseDeclarations)
 
-                \(constructors)
+                    \(constructors)
 
-                \(members)
-                }
-                """)
+                    \(members)
+                    }
+                    """),
+                DeclSyntax(stringLiteral: """
+                    \(accessSpelling)typealias Call = Coproduct<\(arguments)>
+                    """),
+            ]
         }
 
     }

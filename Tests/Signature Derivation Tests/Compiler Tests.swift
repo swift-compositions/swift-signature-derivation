@@ -70,7 +70,7 @@ private struct `Compiler Tests` {
     }
 
     @Test
-    func `call is noncopyable when an operation transfers its input`() throws {
+    func `call is noncopyable when an input is noncopyable`() throws {
         let diagnostic = try typecheckFailure(named: "Noncopyable Call.swift")
 
         #expect(diagnostic.contains("Call"))
@@ -85,16 +85,6 @@ private struct `Compiler Tests` {
 
         #expect(diagnostic.contains("ScopedToken"))
         #expect(diagnostic.contains("Escapable"))
-    }
-
-    @Test
-    func `an owned input keeps its call noncopyable while a composed call stays copyable`() throws {
-        let diagnostic = try typecheckFailure(
-            named: "Owned Input Copyability.swift"
-        )
-
-        #expect(diagnostic.contains("'Owned.Call' conform to 'Copyable'"))
-        #expect(!diagnostic.contains("'Root.Call' conform"))
     }
 
     @Test

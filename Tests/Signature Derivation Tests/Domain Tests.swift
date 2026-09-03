@@ -71,7 +71,7 @@ private enum Linear {
 }
 
 private enum LinearExample {
-    @Signature(copyable: false)
+    @Signature
     protocol `Protocol` {
         associatedtype Linear: Signature_Derivation_Tests::Linear.`Protocol`
 
@@ -97,6 +97,13 @@ private enum Observation {
     @Signature
     protocol `Protocol` {
         func inspect(_ value: borrowing Int) -> Int
+    }
+}
+
+private enum Owned {
+    @Signature
+    protocol `Protocol` {
+        func consume(_ value: consuming Int) -> Int
     }
 }
 
@@ -241,6 +248,17 @@ private struct `Domain Tests` {
         )
 
         #expect(eliminate(call) == 42)
+    }
+
+    @Test
+    func `an owned copyable input keeps its call copyable`() {
+        let call = Owned.Call.consume(7)
+        let eliminate = Owned.Call.Eliminator<Int>(
+            consume: { $0.input }
+        )
+        requireCopyable(call)
+
+        #expect(eliminate(call) == 7)
     }
 
     @Test
