@@ -32,12 +32,12 @@ public struct Macro: PeerMacro {
                 "@Signature requires a semantic protocol named `Protocol` nested in its domain namespace."
             )
         }
-        let signature = Signature(declaration: declaration, owner: owner)
+        let signature = Signature.Analysis(declaration: declaration, owner: owner)
         guard signature.diagnostics.isEmpty else {
             throw MacroExpansionErrorMessage(
                 "@Signature cannot derive this finite signature: \(signature.diagnostics.joined(separator: "; "))."
             )
         }
-        return Derivation.peers(of: signature)
+        return Signature.Derivation.peers(of: signature)
     }
 }
