@@ -25,7 +25,7 @@ enum Root {
 
 func requireCopyable<Value: Copyable>(_: Value) {}
 
-func proveConservativeBoundaries() {
+func proveOwnedInputBoundary() {
     requireCopyable(Owned.Call.consume(1))
     requireCopyable(Root.Call.leaf(.ping()))
 }

@@ -129,6 +129,7 @@ extension Signature {
         public let product: Product.Analysis
         public let coordinates: [Coordinate]
         public let children: [Child]
+        public let declaresNoncopyableCall: Bool
         public let diagnostics: [String]
 
         public init(
@@ -137,6 +138,18 @@ extension Signature {
         ) {
             self.declaration = declaration
             self.owner = owner
+            declaresNoncopyableCall = declaration.attributes.contains { attribute in
+                guard
+                    let attribute = attribute.as(AttributeSyntax.self),
+                    attribute.attributeName.trimmedDescription == "Signature",
+                    let arguments = attribute.arguments?.as(LabeledExprListSyntax.self)
+                else { return false }
+                return arguments.contains { argument in
+                    argument.label?.text == "copyable"
+                        && argument.expression.as(BooleanLiteralExprSyntax.self)?
+                            .literal.tokenKind == .keyword(.false)
+                }
+            }
             let product = Product.Analysis(declaration)
             self.product = product
             coordinates = product.functionCoordinates.map { Coordinate($0, owner: owner) }

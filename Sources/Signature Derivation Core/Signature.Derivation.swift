@@ -36,20 +36,7 @@ extension Signature {
             access: DeclModifierSyntax?
         ) -> DeclSyntax {
             let accessSpelling = access.map { "\($0.name.text) " } ?? ""
-            // An owned parameter can carry a noncopyable value, and a child Call's
-            // capability is unavailable to a syntax macro. Because @Signature is
-            // nested, its peer expansion also cannot introduce the file-scope
-            // constrained extension required by a generic backing enum's
-            // conditional Copyable conformance. These cases therefore take a
-            // conservative path. Plain leaf signatures retain compiler-synthesized
-            // Copyable; an owned copyable payload or fully copyable child can lose
-            // that capability until nested conditional conformances are expressible.
-            //
-            // Call remains Escapable because its canonical generated prisms return
-            // both Call and Application from stored escaping arrows. Swift 6.4
-            // cannot express those result lifetime dependencies; the focused Optic
-            // and Signature compiler fixtures lock down that boundary.
-            let suppressesCopyable = !signature.children.isEmpty
+            let suppressesCopyable = signature.declaresNoncopyableCall
                 || signature.coordinates.contains { coordinate in
                     coordinate.function.parameters.contains {
                         $0.transfersOwnership

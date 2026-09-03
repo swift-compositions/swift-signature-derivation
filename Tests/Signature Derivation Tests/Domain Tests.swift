@@ -71,7 +71,7 @@ private enum Linear {
 }
 
 private enum LinearExample {
-    @Signature
+    @Signature(copyable: false)
     protocol `Protocol` {
         associatedtype Linear: Signature_Derivation_Tests::Linear.`Protocol`
 
@@ -125,6 +125,7 @@ private func success<Index: Operation.Symbol>(
 }
 
 private func requireEscapable<Value: ~Copyable & Escapable>(_: consuming Value) {}
+private func requireCopyable<Value: Copyable>(_: Value) {}
 
 @Suite
 private struct `Domain Tests` {
@@ -290,6 +291,7 @@ private struct `Domain Tests` {
             counter: { _ in Greeting.Name(value: "counter") }
         )
         let name = eliminate(call)
+        requireCopyable(call)
 
         #expect(values.0 == .init(value: "Hello, Blob!"))
         #expect(values.1 == .init(value: 3))

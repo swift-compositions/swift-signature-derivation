@@ -88,14 +88,13 @@ private struct `Compiler Tests` {
     }
 
     @Test
-    func `nested call copyability recovery remains syntactically conservative`() throws {
+    func `an owned input keeps its call noncopyable while a composed call stays copyable`() throws {
         let diagnostic = try typecheckFailure(
-            named: "Conservative Call Copyability.swift"
+            named: "Owned Input Copyability.swift"
         )
 
-        #expect(diagnostic.contains("Owned.Call"))
-        #expect(diagnostic.contains("Root.Call"))
-        #expect(diagnostic.contains("conform to 'Copyable'"))
+        #expect(diagnostic.contains("'Owned.Call' conform to 'Copyable'"))
+        #expect(!diagnostic.contains("'Root.Call' conform"))
     }
 
     @Test

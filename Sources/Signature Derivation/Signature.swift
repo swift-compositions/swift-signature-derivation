@@ -3,7 +3,7 @@
 @_exported import Optic
 
 @attached(peer, names: arbitrary)
-public macro Signature() = #externalMacro(
+public macro Signature(copyable: Bool = true) = #externalMacro(
     module: "Signature_Derivation_Macros",
     type: "Macro"
 )
