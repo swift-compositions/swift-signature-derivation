@@ -21,13 +21,18 @@ extension Signature {
             access: String
         ) -> DeclSyntax {
             DeclSyntax(stringLiteral: """
-                \(access)enum \(coordinate.symbol.trimmedDescription): Operation.Symbol {
+                \(access)enum \(coordinate.symbol.trimmedDescription): Operation::Operation.Member {
                     \(access)typealias Input = \(coordinate.input.trimmedDescription)
                     \(access)typealias Output = \(coordinate.output.trimmedDescription)
                     \(access)typealias Failure = \(coordinate.failure.trimmedDescription)
                     \(access)typealias Application = Operation::Operation.Application<
                         Self
                     >
+                    \(access)typealias Coproduct = Call
+                    \(access)typealias Case = Optic<Call, Call, Application, Application>.Case
+                    \(access)static var keyPath: KeyPath<Call.Cases, Case> {
+                        \\.\(coordinate.name.text)
+                    }
                 }
                 """)
         }
