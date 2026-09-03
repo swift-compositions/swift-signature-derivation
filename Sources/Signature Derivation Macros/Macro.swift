@@ -18,6 +18,9 @@ public struct Macro: PeerMacro {
             if let declaration = syntax.as(StructDeclSyntax.self) {
                 return TypeSyntax(IdentifierTypeSyntax(name: declaration.name))
             }
+            if let declaration = syntax.as(ExtensionDeclSyntax.self) {
+                return declaration.extendedType.trimmed
+            }
             return nil
         }
         let spelling = declaration.name.text
