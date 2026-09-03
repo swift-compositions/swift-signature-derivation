@@ -265,7 +265,6 @@ public enum Derivation {
                     $0.transfersOwnership
                 }
             }
-        let capability = suppressesCopyable ? ": ~Copyable" : ""
         let leafCases = signature.coordinates.map { coordinate in
             EnumCaseElementSyntax(
                 name: coordinate.name,
@@ -322,9 +321,19 @@ public enum Derivation {
         let members = algebra.map {
             $0.trimmedDescription
         }.joined(separator: "\n\n")
+        let indices = signature.coordinates.map { $0.symbol.trimmedDescription }
+            + signature.children.map { $0.call.trimmedDescription }
+        let operations = indices.dropFirst().reduce(indices[0]) { partial, next in
+            "Either<\(partial), \(next)>"
+        }
+        let conformance = suppressesCopyable
+            ? ": ~Copyable, Operation::Operation.Coproduct"
+            : ": Operation::Operation.Coproduct"
 
         return DeclSyntax(stringLiteral: """
-            \(accessSpelling)enum Call\(capability) {
+            \(accessSpelling)enum Call\(conformance) {
+            \(accessSpelling)typealias Operations = \(operations)
+
             \(caseDeclarations)
 
             \(constructors)
