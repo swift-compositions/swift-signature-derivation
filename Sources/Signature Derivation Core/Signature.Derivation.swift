@@ -36,18 +36,13 @@ extension Signature {
             access: String
         ) -> String {
             """
-                \(access)enum \(coordinate.symbol.trimmedDescription): Operation::Operation.Member {
+                \(access)enum \(coordinate.symbol.trimmedDescription): Operation::Operation.Symbol {
                     \(access)typealias Input = \(coordinate.input.trimmedDescription)
                     \(access)typealias Output = \(coordinate.output.trimmedDescription)
                     \(access)typealias Failure = \(coordinate.failure.trimmedDescription)
                     \(access)typealias Application = Operation::Operation.Application<
                         Self
                     >
-                    \(access)typealias Coproduct = Call
-                    \(access)typealias Case = Optic<Call, Call, Application, Application>.Case
-                    \(access)static var keyPath: KeyPath<Call.Cases, Case> {
-                        \\.\(coordinate.name.text)
-                    }
                 }
                 """
         }
@@ -144,12 +139,6 @@ extension Signature {
                     Cases()
                 }
                 """
-            let indices = signature.coordinates.map {
-                "\(owner).Operations.\($0.symbol.trimmedDescription)"
-            } + children.map(\.parameter)
-            let operations = indices.dropFirst().reduce(indices[0]) { partial, next in
-                "Either<\(partial), \(next)>"
-            }
             let router = self.router(
                 summands: summands.map {
                     (label: $0.name.text, payload: $0.parameter)
@@ -161,8 +150,6 @@ extension Signature {
                 DeclSyntax(stringLiteral: """
                     @Structural
                     \(accessSpelling)enum Coproduct<\(parameters)>: ~Copyable, Operation::Operation.Coproduct {
-                    \(accessSpelling)typealias Operations = \(operations)
-
                     \(caseDeclarations)
 
                     \(constructors)
@@ -198,6 +185,9 @@ extension Signature {
                         "\($0.coder): Coder::Coding<Message, \($0.payload), Message, Failure>"
                     }
             ).joined(separator: ",\n")
+            let restatements = coders.map {
+                "\($0.coder).Output: ~Copyable"
+            }.joined(separator: ",\n")
             let storage = coders.map {
                 "\(access)let \($0.label): \($0.coder)"
             }.joined(separator: "\n")
@@ -235,7 +225,10 @@ extension Signature {
             return """
                 \(access)struct Router<
                 \(parameters)
-                >: Coder::Coding {
+                >: Coder::Coding
+                where
+                \(restatements)
+                {
                     \(access)typealias Input = Message
 
                     \(access)typealias Buffer = Message
