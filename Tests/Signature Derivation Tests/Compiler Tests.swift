@@ -20,7 +20,7 @@ private struct `Compiler Tests` {
 
         #expect(
             diagnostic.contains(
-                "cannot convert value of type 'Either<Counter.Increment.Output, Counter.Increment.Failure>'"
+                "cannot convert value of type 'Either<Counter.Operations.Increment.Failure, Counter.Operations.Increment.Output>'"
             )
         )
     }

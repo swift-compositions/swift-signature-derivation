@@ -25,14 +25,12 @@ extension Signature {
 
             fileprivate init(
                 _ function: Product.Analysis.Function,
-                owner: TypeSyntax
+                owner: TypeSyntax,
+                shadowed: Set<String>
             ) {
                 self.function = function
                 symbol = .identifier(Self.symbolName(function.name.text))
-                let qualify = DomainQualifier(
-                    owner: owner,
-                    names: ["Input", "Output", "Failure"]
-                )
+                let qualify = DomainQualifier(owner: owner, names: shadowed)
                 inputs = function.parameters.map { parameter in
                     let declaration = parameter.declaration
                     let source = declaration.firstName.tokenKind == .wildcard
@@ -108,7 +106,7 @@ extension Signature {
                 }
             }
 
-            private static func symbolName(_ operation: String) -> String {
+            static func symbolName(_ operation: String) -> String {
                 guard let first = operation.first else { return operation }
                 return String(first).uppercased() + String(operation.dropFirst())
             }
@@ -131,6 +129,22 @@ extension Signature {
         public let children: [Child]
         public let diagnostics: [String]
 
+        public static let derived = [
+            "Input",
+            "Output",
+            "Failure",
+            "Operations",
+            "Product",
+            "Client",
+            "Coproduct",
+            "Call",
+            "Cases",
+            "Prisms",
+            "Folds",
+            "Eliminator",
+            "Router",
+        ]
+
         public init(
             declaration: ProtocolDeclSyntax,
             owner: TypeSyntax
@@ -139,7 +153,14 @@ extension Signature {
             self.owner = owner
             let product = Product.Analysis(declaration)
             self.product = product
-            coordinates = product.functionCoordinates.map { Coordinate($0, owner: owner) }
+            let shadowed = Set(
+                Self.derived + product.functionCoordinates.map {
+                    Coordinate.symbolName($0.name.text)
+                }
+            )
+            coordinates = product.functionCoordinates.map {
+                Coordinate($0, owner: owner, shadowed: shadowed)
+            }
 
             var reasons = product.diagnostics
             if declaration.inheritanceClause != nil {

@@ -14,4 +14,4 @@ enum Counter {
     struct Limit {}
 }
 
-let application: Greeting.Greet.Application = .init(Counter.Limit())
+let application: Greeting.Operations.Greet.Application = .init(Counter.Limit())

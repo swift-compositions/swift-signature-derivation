@@ -24,10 +24,10 @@ enum Counter {
 
 func accept<Index: Operation.Symbol>(
     _: borrowing Operation.Application<Index>,
-    result: borrowing Either<Index.Output, Index.Failure>
+    result: borrowing Either<Index.Failure, Index.Output>
 ) {}
 
-let operation = Greeting.Greet.Application(.init())
-let result: Either<Counter.Increment.Output, Counter.Increment.Failure> =
-    .left(.init())
+let operation = Greeting.Operations.Greet.Application(.init())
+let result: Either<Counter.Operations.Increment.Failure, Counter.Operations.Increment.Output> =
+    .right(.init())
 accept(operation, result: result)

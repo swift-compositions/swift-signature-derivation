@@ -16,5 +16,5 @@ enum Counter {
     enum Failure: Swift.Error { case refused }
 }
 
-let result: Either<Greeting.Greet.Output, Greeting.Greet.Failure> =
-    .right(Counter.Failure.refused)
+let result: Either<Greeting.Operations.Greet.Failure, Greeting.Operations.Greet.Output> =
+    .left(Counter.Failure.refused)

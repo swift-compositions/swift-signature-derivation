@@ -16,5 +16,5 @@ enum Counter {
     struct Value {}
 }
 
-let result: Either<Greeting.Greet.Output, Greeting.Greet.Failure> =
-    .left(Counter.Value())
+let result: Either<Greeting.Operations.Greet.Failure, Greeting.Operations.Greet.Output> =
+    .right(Counter.Value())

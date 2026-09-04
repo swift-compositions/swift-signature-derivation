@@ -59,6 +59,21 @@ private enum Nested {
     }
 }
 
+private enum Numerals {
+    struct Digit: Equatable {
+        var value: Int
+    }
+
+    enum Failure: Swift.Error, Equatable {
+        case unreadable
+    }
+
+    @Signature
+    protocol `Protocol` {
+        func digit(_ digit: Digit) throws(Failure) -> Digit
+    }
+}
+
 private enum Linear {
     struct Token: ~Copyable {
         let value: Int
@@ -127,8 +142,8 @@ private func use<Client: Example.`Protocol`>(
 private func success<Index: Operation.Symbol>(
     _: borrowing Operation.Application<Index>,
     _ output: consuming Index.Output
-) -> Either<Index.Output, Index.Failure> {
-    .left(output)
+) -> Either<Index.Failure, Index.Output> {
+    .right(output)
 }
 
 private func requireEscapable<Value: ~Copyable & Escapable>(_: consuming Value) {}
@@ -148,7 +163,7 @@ private struct `Domain Tests` {
 
     @Test
     func `operation application carries its input and dependent result family`() {
-        let operation = Greeting.Greet.Application(
+        let operation = Greeting.Operations.Greet.Application(
             Greeting.Name(value: "Blob")
         )
         let result = success(
@@ -158,9 +173,9 @@ private struct `Domain Tests` {
 
         #expect(operation.input == .init(value: "Blob"))
         switch result {
-        case let .left(message):
+        case let .right(message):
             #expect(message == .init(value: "Hello, Blob!"))
-        case .right:
+        case .left:
             Issue.record("Never is uninhabited")
         }
     }
@@ -182,7 +197,8 @@ private struct `Domain Tests` {
 
         switch Greeting.Call.prisms.greet.match(call) {
         case let .right(application):
-            #expect(application.input == .init(value: "Blob"))
+            let name: Greeting.Name = application.input
+            #expect(name == Greeting.Name(value: "Blob"))
         case .left:
             Issue.record("Expected the greet prism to match")
         }
@@ -283,8 +299,8 @@ private struct `Domain Tests` {
             combine: { _ in 42 }
         )
         let call = LinearPair.Call.combine(
-            .init(value: 20),
-            with: .init(value: 22)
+            LinearPair.Token(value: 20),
+            with: LinearPair.Token(value: 22)
         )
 
         #expect(eliminate(call) == 42)
@@ -314,14 +330,28 @@ private struct `Domain Tests` {
     }
 
     @Test
+    func `a value type and an operation may share a name`() throws {
+        let application = Numerals.Operations.Digit.Application(.init(value: 7))
+        let _: Numerals.Digit = application.input
+        let _: Numerals.Operations.Digit.Input.Type = Numerals.Digit.self
+        let _: Numerals.Operations.Digit.Output.Type = Numerals.Digit.self
+        let _: Numerals.Operations.Digit.Failure.Type = Numerals.Failure.self
+        let eliminate = Numerals.Call.Eliminator<Numerals.Digit>(
+            digit: { $0.input }
+        )
+
+        #expect(eliminate(.digit(.init(value: 7))) == .init(value: 7))
+    }
+
+    @Test
     func `nested domain types remain qualified throughout syntax trees`() {
-        let application = Nested.Transform.Application([.init()])
-        let _: Nested.Transform.Input = application.input
-        let _: Nested.Transform.Output.Type = Swift.Result<
+        let application = Nested.Operations.Transform.Application([.init()])
+        let _: Nested.Operations.Transform.Input = application.input
+        let _: Nested.Operations.Transform.Output.Type = Swift.Result<
             Nested.Output,
             Nested.Failure
         >.self
-        let _: Nested.Transform.Failure.Type = Nested.Failure.self
+        let _: Nested.Operations.Transform.Failure.Type = Nested.Failure.self
     }
 
     @Test
@@ -359,7 +389,7 @@ private struct `Domain Tests` {
     @Test
     func `ordinary calls preserve labels and effects`() async throws {
         let client = Example.Product(greeting: greeting, counter: counter)
-        let call = Counter.Call.increment(limit: .init(value: 2))
+        let call = Counter.Call.increment(limit: Counter.Limit(value: 2))
         let eliminate = Counter.Call.Eliminator<Counter.Limit>(
             increment: { $0.input }
         )
